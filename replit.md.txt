@@ -1,0 +1,74 @@
+# Grenaid
+
+A mobile-first Free Fire game ID buying and selling marketplace. Users can register, submit their FF IDs for sale (Facebook or Google linked), and buyers can browse approved listings. Admin verifies IDs within 24 hours.
+
+## Run & Operate
+
+- `pnpm --filter @workspace/api-server run dev` — run the API server (port 8080)
+- `pnpm run typecheck` — full typecheck across all packages
+- `pnpm run build` — typecheck + build all packages
+- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
+- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
+- Required env: `DATABASE_URL` — Postgres connection string
+
+## Stack
+
+- pnpm workspaces, Node.js 24, TypeScript 5.9
+- Frontend: React + Vite (artifacts/ff-id-store) — mobile-first, max-width 430px, purple gaming theme
+- API: Express 5 (artifacts/api-server)
+- DB: PostgreSQL + Drizzle ORM
+- Auth: JWT (jsonwebtoken), stored in localStorage as "ff_token"
+- Validation: Zod (`zod/v4`), `drizzle-zod`
+- API codegen: Orval (from OpenAPI spec)
+- Build: esbuild (CJS bundle)
+
+## Where things live
+
+- `lib/api-spec/openapi.yaml` — OpenAPI spec (source of truth)
+- `lib/db/src/schema/` — users.ts, ff_ids.ts, messages.ts
+- `artifacts/api-server/src/routes/` — auth, profile, ids, messages, admin
+- `artifacts/ff-id-store/src/pages/` — landing, login, register, home, profile, sell, my-ids, buy, buy-id, support, admin
+- `artifacts/ff-id-store/src/lib/pricing.ts` — price calculation logic
+
+## Architecture decisions
+
+- JWT-based auth (not session cookies) — token stored in localStorage, injected via setAuthTokenGetter from api-client-react
+- Pricing is calculated server-side on submit (not trusted from client) and client-side for live preview
+- Admin credentials hardcoded: phone=8874012067, password=raaz86011 (auto-creates admin user on first login)
+- Messages are per-user — admin replies are stored with the user's userId but isAdmin=true flag
+- Buy price = sell price / 2 (rounded)
+
+## Pricing Logic (Sell Price)
+
+- Prime 1-2: Not eligible (₹0)
+- Prime 3 + Level 60: ₹3,000
+- Prime 4 + Level 60: ₹6,000
+- Prime 5 + Level 60: ₹15,000
+- Prime 6 + Level 55+: ₹22,000
+- Prime 7 (any level): ₹26,000
+- Prime 8 (any level): ₹35,000
+
+## Product Pages
+
+- **Landing** — Grenaid branding, Continue with Google/Facebook, Login with Mobile Number
+- **Register/Login** — Phone + password auth, purple dark theme
+- **Home** — Hero banner, quick action grid (Sell ID, Buy ID, Customer Service, My Profile), How It Works steps, Featured IDs
+- **Sell ID** — 2-step flow: Step 1 pick Facebook/Google, Step 2 fill details, live price preview, UPI ID field for payout
+- **My Listed IDs** — Track submitted IDs with status (pending/approved/sold)
+- **Buy** — Filter by Prime Level (All, 1-3, 4-6, 7-8), listing cards with sell/buy prices
+- **Buy ID Detail** — Full details, Buy Now button redirects to Customer Service
+- **Profile** — Stats (IDs Sold, IDs Bought, Total Earned), menu links, admin panel link
+- **Customer Service** — In-app chat with admin (customer support)
+- **Admin Dashboard** — Stats cards, Pending Approvals, Users, All IDs, Messages tabs
+
+## User preferences
+
+- Hindi/Indian audience — keep text simple and clear
+- Mobile-first, max 430px width
+- Purple gaming theme matching reference design
+
+## Gotchas
+
+- Always run codegen after changing openapi.yaml
+- Admin is auto-created on first login with hardcoded credentials
+- Run `pnpm --filter @workspace/db run push` after schema changes
